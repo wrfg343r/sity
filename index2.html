@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<title>Журнал оценок</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- SheetJS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700&display=swap" rel="stylesheet" />
+<style>
+  /* --- Общие стили --- */
+  :root {
+    --color-bg-dark: #181818;
+    --color-bg-darker: #121212;
+    --color-bg-light: #f5f5f5;
+    --color-text-dark: #fff;
+    --color-text-light: #222;
+    --color-accent: #ff9000;
+    --color-accent-dark: #cc7300;
+    --color-table-even: #202020;
+    --color-table-odd: #232323;
+    --color-border: #333;
+    --color-input-bg-dark: #181818;
+    --color-input-bg-light: #fff;
+  }
+  body {
+    font-family: 'Montserrat', Arial, sans-serif;
+    margin: 0;
+    min-height: 100vh;
+    background: var(--color-bg-dark);
+    color: var(--color-text-dark);
+    display: flex;
+    flex-direction: column;
+    transition: background 0.3s, color 0.3s;
+  }
+  body.light {
+    background: var(--color-bg-light);
+    color: var(--color-text-light);
+  }
+  /* --- Тема --- */
+  .theme-toggle {
+    position: fixed;
+    top: 12px;
+    right: 12px;
+    background: var(--color-accent);
+    border: none;
+    border-radius: 20px;
+    padding: 8px 14px;
+    font-weight: 700;
+    color: var(--color-bg-dark);
+    cursor: pointer;
+    z-index: 1100;
+    transition: background 0.3s, color 0.3s;
+  }
+  .theme-toggle:hover {
+    background: var(--color-accent-dark);
+  }
+  body.light .theme-toggle {
+    background: var(--color-accent-dark);
+    color: var(--color-bg-light);
+  }
+  body.light .theme-toggle:hover {
+    background: var(--color-accent);
+    color: var(--color-bg-dark);
+  }
+
+  /* --- Навигация слева --- */
+  #main-app {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  nav {
+    background: #222;
+    width: 220px;
+    min-width: 220px;
+    display: flex;
+    flex-direction: column;
+    color: var(--color-text-dark);
+    box-shadow: 2px 0 8px #000a;
+    transition: background 0.3s, color 0.3s;
+  }
+  body.light nav {
+    background: #eee;
+    color: var(--color-text-light);
+    box-shadow: 2px 0 8px #aaa6;
+  }
+  nav .user-name {
+    font-weight: 700;
+    font-size: 1.3rem;
+    padding: 20px 16px;
+    border-bottom: 2px solid var(--color-accent);
+    color: var(--color-accent);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  body.light nav .user-name {
+    color: var(--color-accent-dark);
+    border-bottom-color: var(--color-accent-dark);
+  }
+  nav .tabs {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+  }
+  nav .tab {
+    padding: 16px 20px;
+    color: inherit;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 1.1rem;
+    border-left: 4px solid transparent;
+    transition: background 0.2s, border-color 0.3s, color 0.3s;
+    user-select: none;
+  }
+  nav .tab:hover {
+    background: var(--color-bg-darker);
+  }
+  body.light nav .tab:hover {
+    background: #ddd;
+  }
+  nav .tab.active {
+    background: var(--color-bg-darker);
+    border-left-color: var(--color-accent);
+    color: var(--color-accent);
+  }
+  body.light nav .tab.active {
+    background: #ddd;
+    border-left-color: var(--color-accent-dark);
+    color: var(--color-accent-dark);
+  }
+
+  /* --- Контент --- */
+  .content {
+    flex-grow: 1;
+    padding: 24px 32px;
+    overflow-y: auto;
+    background: var(--color-bg-darker);
+    border-radius: 0 0 0 12px;
+    box-shadow: inset 2px 0 8px #000a;
+    transition: background 0.3s;
+  }
+  body.light .content {
+    background: #fff;
+    box-shadow: inset 2px 0 8px #aaa6;
+  }
+  h2 {
+    color: var(--color-accent);
+    font-size: 2rem;
+    font-weight: 800;
+    margin-bottom: 24px;
+    letter-spacing: 0.5px;
+  }
+  body.light h2 {
+    color: var(--color-accent-dark);
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-top: 12px;
+    background: var(--color-bg-dark);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px #000a;
+    transition: background 0.3s;
+  }
+  body.light table {
+    background: #fafafa;
+    box-shadow: 0 2px 10px #ccc;
+  }
+  th, td {
+    border: 1px solid var(--color-border);
+    padding: 11px 14px;
+    text-align: left;
+    font-size: 1.05rem;
+    transition: background 0.3s, color 0.3s;
+  }
+  th {
+    background: var(--color-bg-darker);
+    color: var(--color-accent);
+    font-weight: 700;
+  }
+  body.light th {
+    background: #ddd;
+    color: var(--color-accent-dark);
+  }
+  tr:nth-child(even) {
+    background: var(--color-table-even);
+  }
+  tr:nth-child(odd) {
+    background: var(--color-table-odd);
+  }
+  body.light tr:nth-child(even) {
+    background: #f5f5f5;
+  }
+  body.light tr:nth-child(odd) {
+    background: #fff;
+  }
+  input, select, button {
+    padding: 10px;
+    margin: 4px;
+    border-radius: 6px;
+    border: 1px solid #444;
+    font-size: 1rem;
+    background: var(--color-input-bg-dark);
+    color: var(--color-text-dark);
+    transition: background 0.3s, color 0.3s, border-color 0.3s;
+  }
+  body.light input, body.light select, body.light button {
+    background: var(--color-input-bg-light);
+    color: var(--color-text-light);
+    border-color: #bbb;
+  }
+  input:focus, select:focus {
+    border-color: var(--color-accent);
+    outline: none;
+  }
+  body.light input:focus, body.light select:focus {
+    border-color: var(--color-accent-dark);
+  }
+  button {
+    background: var(--color-accent);
+    color: var(--color-bg-dark);
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  button:hover {
+    background: #fff;
+    color: var(--color-accent);
+  }
+  body.light button {
+    background: var(--color-accent-dark);
+    color: var(--color-bg-light);
+  }
+  body.light button:hover {
+    background: #fff;
+    color: var(--color-accent-dark);
+  }
+  .form-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+  .actions {
+    display: flex;
+    gap: 7px;
+  }
+  .actions button {
+    padding: 7px 14px;
+    font-size: 1rem;
+    background: #232323;
+    color: var(--color-accent);
+    border: 1px solid var(--color-accent);
+  }
+  .actions button:hover {
+    background: var(--color-accent);
+    color: var(--color-bg-dark);
+  }
+  .subject-input {
+    width: 82px;
+  }
+  .photo {
+    border-radius: 16px;
+    width: 180px;
+    margin-bottom: 16px;
+    border: 3px solid var(--color-accent);
+    box-shadow: 0 0 12px var(--color-accent);
+    transition: border-color 0.3s;
+  }
+  body.light .photo {
+    border-color: var(--color-accent-dark);
+    box-shadow: 0 0 12px var(--color-accent-dark);
+  }
+
+  /* --- AUTH/REGISTRATION SCREEN --- */
+  #auth-screen {
+    position: fixed;
+    inset: 0;
+    background: var(--color-bg-dark);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    min-height: 100vh;
+    transition: background 0.3s;
+  }
+  body.light #auth-screen {
+    background: var(--color-bg-light);
+  }
+  .auth-box {
+    background: #232323;
+    border-radius: 14px;
+    box-shadow: 0 8px 32px #000a;
+    padding: 44px 38px 36px 38px;
+    min-width: 340px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    z-index: 2;
+    transition: background 0.3s, color 0.3s;
+  }
+  body.light .auth-box {
+    background: #fff;
+    color: var(--color-text-light);
+    box-shadow: 0 8px 32px #aaa6;
+  }
+  .auth-box h2 {
+    margin-bottom: 18px;
+    color: var(--color-accent);
+    font-size: 2rem;
+  }
+  body.light .auth-box h2 {
+    color: var(--color-accent-dark);
+  }
+  .auth-box input {
+    width: 220px;
+    padding: 12px;
+    margin-bottom: 16px;
+    border-radius: 7px;
+    border: 1px solid #444;
+    font-size: 1rem;
+    background: var(--color-input-bg-dark);
+    color: var(--color-text-dark);
+    transition: border 0.2s, background 0.3s, color 0.3s;
+  }
+  body.light .auth-box input {
+    background: var(--color-input-bg-light);
+    color: var(--color-text-light);
+    border-color: #bbb;
+  }
+  .auth-box input:focus {
+    border-color: var(--color-accent);
+  }
+  body.light .auth-box input:focus {
+    border-color: var(--color-accent-dark);
+  }
+  .auth-box button {
+    background: var(--color-accent);
+    color: var(--color-bg-dark);
+    border: none;
+    border-radius: 7px;
+    padding: 12px 32px;
+    font-size: 1rem;
+    font-weight: 700;
+    margin-top: 8px;
+    cursor: pointer;
+    transition: background 0.3s, color 0.3s;
+  }
+  .auth-box button:hover {
+    background: #fff;
+    color: var(--color-accent);
+  }
+  body.light .auth-box button {
+    background: var(--color-accent-dark);
+    color: var(--color-bg-light);
+  }
+  body.light .auth-box button:hover {
+    background: #fff;
+    color: var(--color-accent-dark);
+  }
+  .auth-error {
+    color: #ff5050;
+    font-size: 1rem;
+    margin-bottom: 10px;
+    min-height: 24px;
+  }
+  .auth-switch {
+    color: var(--color-text-dark);
+    margin-top: 18px;
+    font-size: 1rem;
+  }
+  .auth-switch a {
+    color: var(--color-accent);
+    cursor: pointer;
+    text-decoration: underline;
+  }
+  body.light .auth-switch {
+    color: var(--color-text-light);
+  }
+  body.light .auth-switch a {
+    color: var(--color-accent-dark);
+  }
+
+  /* --- Падающие оценки (как листья) --- */
+  .falling-grade {
+    position: fixed;
+    font-size: 2.5rem;
+    font-weight: bold;
+    opacity: 0.8;
+    pointer-events: none;
+    z-index: 1;
+    user-select: none;
+    animation: fall 3.5s linear forwards;
+    will-change: transform, opacity;
+    font-family: 'Montserrat', sans-serif;
+    text-shadow: 0 0 4px rgba(0,0,0,0.6);
+  }
+  @keyframes fall {
+    0% {
+      transform: translateY(-60px) rotate(-30deg) scale(1);
+      opacity: 0.8;
+    }
+    80% {
+      opacity: 0.95;
+    }
+    100% {
+      transform: translateY(100vh) rotate(40deg) scale(1.1);
+      opacity: 0;
+    }
+  }
+
+  /* --- Контент вкладок --- */
+  .tab-content {
+    display: none;
+  }
+  .tab-content.active {
+    display: block;
+  }
+
+  /* --- Помощь - расширенный стиль --- */
+  #tab-4 ul {
+    list-style: inside disc;
+    font-size: 1.1rem;
+    line-height: 1.5;
+    max-width: 720px;
+  }
+  #tab-4 ul li {
+    margin-bottom: 14px;
+  }
+  #tab-4 ul li b {
+    color: var(--color-accent);
+  }
+  body.light #tab-4 ul li b {
+    color: var(--color-accent-dark);
+  }
+
+  /* --- Стиль "О программе" обновлён --- */
+  #tab-5 {
+    max-width: 600px;
+  }
+  #tab-5 p {
+    font-size: 1.1rem;
+    margin-bottom: 12px;
+  }
+  #tab-5 .photo {
+    width: 160px;
+    border-radius: 50%;
+    margin-bottom: 20px;
+    box-shadow: 0 0 15px var(--color-accent);
+    transition: box-shadow 0.3s;
+  }
+  body.light #tab-5 .photo {
+    box-shadow: 0 0 15px var(--color-accent-dark);
+  }
+  #tab-5 b {
+    color: var(--color-accent);
+  }
+  body.light #tab-5 b {
+    color: var(--color-accent-dark);
+  }
+
+  /* --- Адаптивность --- */
+  @media (max-width: 900px) {
+    #main-app {
+      flex-direction: column;
+    }
+    nav {
+      width: 100%;
+      min-width: auto;
+      flex-direction: row;
+      overflow-x: auto;
+      box-shadow: none;
+    }
+    nav .user-name {
+      flex: 1 0 auto;
+      border-bottom: none;
+      border-right: 2px solid var(--color-accent);
+      padding: 12px 16px;
+      font-size: 1rem;
+      white-space: nowrap;
+    }
+    body.light nav .user-name {
+      border-right-color: var(--color-accent-dark);
+    }
+    nav .tabs {
+      flex-direction: row;
+      flex-grow: 0;
+    }
+    nav .tab {
+      border-left: none;
+      border-right: 1px solid #444;
+      padding: 12px 16px;
+      font-size: 1rem;
+      white-space: nowrap;
+    }
+    nav .tab:last-child {
+      border-right: none;
+    }
+    .content {
+      padding: 16px 20px;
+      border-radius: 0;
+      box-shadow: none;
+    }
+  }
+  @media (max-width: 480px) {
+    .form-row {
+      flex-direction: column;
+    }
+    .subject-input {
+      width: 100%;
+    }
+    input, select, button {
+      width: 100%;
+      box-sizing: border-box;
+    }
+  }
+</style>
+</head>
+<body>
+<button class="theme-toggle" id="themeToggle" title="Переключить тему">Тёмная тема</button>
+
+<!-- AUTH/REGISTRATION SCREEN -->
+<div id="auth-screen">
+  <div class="auth-box" id="auth-box">
+    <h2 id="auth-title">Вход</h2>
+    <div id="auth-error" class="auth-error"></div>
+    <input id="auth-login" type="text" placeholder="Логин" autocomplete="username" />
+    <input id="auth-password" type="password" placeholder="Пароль" autocomplete="current-password" />
+    <input id="auth-name" type="text" placeholder="Ваше имя" style="display:none" />
+    <button onclick="submitAuth()">Войти</button>
+    <div class="auth-switch" id="auth-switch">
+      Нет аккаунта? <a onclick="switchAuthMode(true)">Зарегистрироваться</a>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="main-app" style="display:none">
+  <nav>
+    <div class="user-name" id="nav-user-name" title=""></div>
+    <div class="tabs">
+      <button class="tab active" onclick="showTab(0)">Загрузка</button>
+      <button class="tab" onclick="showTab(1)">Журнал</button>
+      <button class="tab" onclick="showTab(2)">Статистика (таблица)</button>
+      <button class="tab" onclick="showTab(3)">Статистика (графики)</button>
+      <button class="tab" onclick="showTab(4)">Помощь</button>
+      <button class="tab" onclick="showTab(5)">О программе</button>
+    </div>
+  </nav>
+  <main class="content">
+    <section id="tab-0" class="tab-content active">
+      <h2>Загрузка оценок из файла</h2>
+      <input type="file" id="fileInput" accept=".csv,.txt,.xlsx" />
+      <button onclick="clearTable()">Очистить</button>
+      <div id="uploadTable"></div>
+    </section>
+    <section id="tab-1" class="tab-content">
+      <h2>Журнал оценок</h2>
+      <div class="form-row">
+        <input type="text" id="fio" placeholder="ФИО" />
+        <input type="text" id="class" placeholder="Класс" />
+        <input type="number" class="subject-input" id="informatics" placeholder="Информатика" min="2" max="5" />
+        <input type="number" class="subject-input" id="physics" placeholder="Физика" min="2" max="5" />
+        <input type="number" class="subject-input" id="math" placeholder="Математика" min="2" max="5" />
+        <input type="number" class="subject-input" id="literature" placeholder="Литература" min="2" max="5" />
+        <input type="number" class="subject-input" id="music" placeholder="Музыка" min="2" max="5" />
+        <button onclick="addOrUpdate()">Добавить/Сохранить</button>
+      </div>
+      <div id="editInfo"></div>
+      <div id="journalTable"></div>
+      <button onclick="saveToCSV()">Сохранить в CSV</button>
+    </section>
+    <section id="tab-2" class="tab-content">
+      <h2>Статистика (таблица)</h2>
+      <div id="statTable"></div>
+    </section>
+    <section id="tab-3" class="tab-content">
+      <h2>Статистика (графики)</h2>
+      <canvas id="statChart" height="120"></canvas>
+    </section>
+    <section id="tab-4" class="tab-content">
+      <h2>Помощь</h2>
+      <ul>
+        <li><b>Загрузка:</b> Вы можете загрузить файл с оценками в формате <code>.csv</code>, <code>.txt</code> или <code>.xlsx</code>. Убедитесь, что в файле присутствуют следующие колонки: <i>ФИО, Класс, Информатика, Физика, Математика, Литература, Музыка</i>. Разделители могут быть точкой с запятой или запятой.</li>
+        <li><b>Журнал:</b> Здесь вы можете вручную добавить новую запись с оценками, отредактировать существующую или удалить её. Для редактирования нажмите на ✎ рядом с записью, внесите изменения и сохраните. Для удаления - нажмите на 🗑️.</li>
+        <li><b>Сохранение:</b> После редактирования или добавления данных вы можете сохранить весь журнал в файл CSV, чтобы иметь резервную копию или использовать данные в других приложениях.</li>
+        <li><b>Статистика (таблица):</b> Представляет сводные данные по классам и предметам, включая средний балл, медиану и распределение оценок (2,3,4,5) в абсолютных числах и процентах.</li>
+        <li><b>Статистика (графики):</b> Визуализация распределения оценок по предметам с помощью цветных столбчатых диаграмм для быстрого анализа.</li>
+        <li><b>Навигация:</b> Используйте меню слева для быстрого переключения между разделами. Имя пользователя отображается сверху меню.</li>
+        <li><b>Тема:</b> В правом верхнем углу находится переключатель светлой и тёмной темы интерфейса для комфортной работы в любое время суток.</li>
+        <li><b>Поддержка:</b> Если у вас возникли вопросы или предложения, свяжитесь с разработчиком через вкладку "О программе".</li>
+      </ul>
+    </section>
+    <section id="tab-5" class="tab-content">
+      <h2>О программе</h2>
+      <img src="img/photo_2025-05-07_04-12-44.jpg" class="photo" alt="Фото разработчика" />
+      <p><b>Разработчик:</b> Кажикин Илья Сергеевич</p>
+      <p><b>Email:</b> <a href="mailto:psoleeva@mail.ru" style="color:inherit; text-decoration: underline;">kazhikin888@yandex.ru</a></p>
+      <p><b>Телефон:</b> <a href="tel:+79076669809" style="color:inherit; text-decoration: underline;">+79136990989</a></p>
+      <p>Спасибо за использование данного приложения! Мы стараемся сделать процесс ведения журнала оценок максимально удобным и наглядным.</p>
+    </section>
+  </main>
+</div>
+
+<script>
+  // --- Тема ---
+  const themeToggleBtn = document.getElementById('themeToggle');
+  function applyTheme(theme) {
+    if (theme === 'light') {
+      document.body.classList.add('light');
+      themeToggleBtn.textContent = 'Тёмная тема';
+      localStorage.setItem('theme', 'light');
+    } else {
+      document.body.classList.remove('light');
+      themeToggleBtn.textContent = 'Светлая тема';
+      localStorage.setItem('theme', 'dark');
+    }
+  }
+  themeToggleBtn.onclick = () => {
+    const isLight = document.body.classList.contains('light');
+    applyTheme(isLight ? 'dark' : 'light');
+  };
+  // Применяем тему из localStorage или по умолчанию тёмную
+  applyTheme(localStorage.getItem('theme') || 'dark');
+
+  // --- AUTH/REG ---
+  let isReg = false;
+  let currentUser = null;
+  function switchAuthMode(reg) {
+    isReg = reg;
+    document.getElementById('auth-title').innerText = reg ? 'Регистрация' : 'Вход';
+    document.getElementById('auth-name').style.display = reg ? '' : 'none';
+    document.querySelector('.auth-box button').innerText = reg ? 'Зарегистрироваться' : 'Войти';
+    document.getElementById('auth-switch').innerHTML = reg ?
+      'Уже есть аккаунт? <a onclick="switchAuthMode(false)">Войти</a>' :
+      'Нет аккаунта? <a onclick="switchAuthMode(true)">Зарегистрироваться</a>';
+    document.getElementById('auth-error').innerText = '';
+  }
+  function submitAuth() {
+    let login = document.getElementById('auth-login').value.trim();
+    let pass = document.getElementById('auth-password').value.trim();
+    let name = document.getElementById('auth-name').value.trim();
+    if (!login || !pass || (isReg && !name)) {
+      document.getElementById('auth-error').innerText = 'Заполните все поля';
+      return;
+    }
+    let users = JSON.parse(localStorage.getItem('ph_users') || '[]');
+    if (isReg) {
+      if (users.find(u => u.login === login)) {
+        document.getElementById('auth-error').innerText = 'Логин уже занят';
+        return;
+      }
+      users.push({ login, pass, name });
+      localStorage.setItem('ph_users', JSON.stringify(users));
+      document.getElementById('auth-error').innerText = 'Регистрация успешна! Теперь войдите.';
+      switchAuthMode(false);
+    } else {
+      let user = users.find(u => u.login === login && u.pass === pass);
+      if (!user) {
+        document.getElementById('auth-error').innerText = 'Неверный логин или пароль';
+        return;
+      }
+      currentUser = user;
+      document.getElementById('auth-screen').style.display = 'none';
+      document.getElementById('main-app').style.display = '';
+      document.getElementById('nav-user-name').innerText = user.name;
+      document.getElementById('nav-user-name').title = user.name;
+      showTab(0);
+    }
+  }
+  document.getElementById('auth-box').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') submitAuth();
+  });
+
+  // --- Падающие оценки на экране регистрации ---
+  function spawnGrade() {
+    const grades = [2, 3, 4, 5];
+    const grade = grades[Math.floor(Math.random() * grades.length)];
+    const colors = { 2: '#ff5050', 3: '#ffeb3b', 4: '#40c4ff', 5: '#00e676' };
+    const el = document.createElement('div');
+    el.className = 'falling-grade';
+    el.innerText = grade;
+    el.style.left = Math.random() * 96 + 'vw';
+    el.style.color = colors[grade];
+    el.style.transform += ` rotate(${Math.random() * 60 - 30}deg)`;
+    el.style.fontSize = (2.0 + Math.random() * 1.3) + 'rem';
+    el.style.opacity = 0.7 + Math.random() * 0.3;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 3500);
+  }
+  let gradeInterval = setInterval(() => {
+    if (document.getElementById('auth-screen').style.display !== 'none') spawnGrade();
+  }, 420);
+
+  // --- TABS ---
+  function showTab(idx) {
+    document.querySelectorAll('.tab-content').forEach((el, i) => {
+      el.classList.toggle('active', i === idx);
+    });
+    document.querySelectorAll('nav .tab').forEach((el, i) => {
+      el.classList.toggle('active', i === idx);
+    });
+    if (idx === 1) renderJournal();
+    if (idx === 2) renderStatTable();
+    if (idx === 3) renderStatChart();
+  }
+
+  // --- ЖУРНАЛ ОЦЕНОК ---
+  let journal = [];
+  let editIndex = null;
+  const subjects = ["Информатика", "Физика", "Математика", "Литература", "Музыка"];
+  const requiredHeaders = ["ФИО", "Класс", ...subjects];
+
+  document.getElementById('fileInput').addEventListener('change', function (e) {
+    let file = e.target.files[0];
+    if (!file) return;
+    let ext = file.name.split('.').pop().toLowerCase();
+    if (['csv', 'txt'].includes(ext)) {
+      let reader = new FileReader();
+      reader.onload = function (e) {
+        let text = e.target.result;
+        let rows = text.split(/\r?\n/).filter(Boolean).map(row => row.split(/[;,]/));
+        processRows(rows);
+      };
+      reader.readAsText(file);
+    } else if (ext === 'xlsx') {
+      let reader = new FileReader();
+      reader.onload = function (e) {
+        let data = new Uint8Array(e.target.result);
+        let workbook = XLSX.read(data, { type: 'array' });
+        let sheet = workbook.Sheets[workbook.SheetNames[0]];
+        let rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+        processRows(rows);
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      alert('Поддерживаются только .csv, .txt, .xlsx');
+    }
+  });
+
+  function processRows(rows) {
+    if (rows.length === 0) {
+      alert('Файл пустой');
+      return;
+    }
+    const headers = rows[0].map(h => h.trim());
+    const missing = requiredHeaders.filter(h => !headers.includes(h));
+    if (missing.length > 0) {
+      alert('В файле отсутствуют колонки: ' + missing.join(', '));
+      return;
+    }
+    let idx = {};
+    requiredHeaders.forEach(h => { idx[h] = headers.indexOf(h); });
+    let loaded = [];
+    for (let i = 1; i < rows.length; ++i) {
+      let r = rows[i];
+      if (r.length < headers.length) continue;
+      let entry = {
+        fio: r[idx["ФИО"]],
+        class: r[idx["Класс"]],
+      };
+      subjects.forEach(s => entry[s] = parseInt(r[idx[s]]));
+      loaded.push(entry);
+    }
+    journal = loaded;
+    renderUploadTable();
+    renderJournal();
+  }
+
+  function renderUploadTable() {
+    let html = '<table><tr><th>ФИО</th><th>Класс</th>';
+    subjects.forEach(s => html += `<th>${s}</th>`);
+    html += '</tr>';
+    for (let row of journal)
+      html += `<tr><td>${row.fio}</td><td>${row.class}</td>${subjects.map(s => `<td>${row[s]}</td>`).join('')}</tr>`;
+    html += '</table>';
+    document.getElementById('uploadTable').innerHTML = html;
+  }
+
+  function clearTable() {
+    journal = [];
+    renderUploadTable();
+    renderJournal();
+  }
+
+  function addOrUpdate() {
+    let fio = document.getElementById('fio').value.trim();
+    let cls = document.getElementById('class').value.trim();
+    let entry = { fio, class: cls };
+    let valid = fio && cls;
+    subjects.forEach(s => {
+      let val = parseInt(document.getElementById(subjectToId(s)).value);
+      entry[s] = val;
+      if (isNaN(val) || val < 2 || val > 5) valid = false;
+    });
+    if (!valid) {
+      alert('Проверьте правильность ввода!');
+      return;
+    }
+    if (editIndex !== null) {
+      journal[editIndex] = entry;
+      editIndex = null;
+      document.getElementById('editInfo').innerHTML = '';
+    } else {
+      journal.push(entry);
+    }
+    document.getElementById('fio').value = '';
+    document.getElementById('class').value = '';
+    subjects.forEach(s => document.getElementById(subjectToId(s)).value = '');
+    renderJournal();
+    renderUploadTable();
+  }
+  function subjectToId(s) {
+    return {
+      "Информатика": "informatics",
+      "Физика": "physics",
+      "Математика": "math",
+      "Литература": "literature",
+      "Музыка": "music"
+    }[s];
+  }
+
+  function renderJournal() {
+    let html = '<table><tr><th>ФИО</th><th>Класс</th>';
+    subjects.forEach(s => html += `<th>${s}</th>`);
+    html += '<th>Действия</th></tr>';
+    journal.forEach((row, i) => {
+      html += `<tr>
+          <td>${row.fio}</td>
+          <td>${row.class}</td>
+          ${subjects.map(s => `<td>${row[s]}</td>`).join('')}
+          <td class="actions">
+              <button onclick="editRow(${i})" title="Редактировать">✎</button>
+              <button onclick="deleteRow(${i})" title="Удалить">🗑️</button>
+          </td>
+      </tr>`;
+    });
+    html += '</table>';
+    document.getElementById('journalTable').innerHTML = html;
+  }
+
+  function editRow(i) {
+    let row = journal[i];
+    document.getElementById('fio').value = row.fio;
+    document.getElementById('class').value = row.class;
+    subjects.forEach(s => document.getElementById(subjectToId(s)).value = row[s]);
+    editIndex = i;
+    document.getElementById('editInfo').innerHTML = 'Редактирование записи. После изменений нажмите "Добавить/Сохранить".';
+  }
+
+  function deleteRow(i) {
+    if (confirm('Удалить запись?')) {
+      journal.splice(i, 1);
+      renderJournal();
+      renderUploadTable();
+    }
+  }
+
+  function saveToCSV() {
+    let csv = requiredHeaders.join(';') + '\n';
+    journal.forEach(r => {
+      csv += `${r.fio};${r.class};${subjects.map(s => r[s]).join(';')}\n`;
+    });
+    let blob = new Blob([csv], { type: 'text/csv' });
+    let a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'journal.csv';
+    a.click();
+  }
+
+  // --- СТАТИСТИКА ---
+  function avg(arr) { if (!arr.length) return 0; return arr.reduce((a, b) => a + b, 0) / arr.length; }
+  function median(arr) {
+    if (!arr.length) return 0;
+    let s = arr.slice().sort((a, b) => a - b);
+    let mid = Math.floor(s.length / 2);
+    return s.length % 2 ? s[mid] : ((s[mid - 1] + s[mid]) / 2).toFixed(1);
+  }
+  function count(arr, val) { return arr.filter(x => x === val).length; }
+  function perc(arr, val) { if (!arr.length) return 0; return Math.round(count(arr, val) / arr.length * 100); }
+  function renderStatTable() {
+    let byClass = {};
+    journal.forEach(r => {
+      if (!byClass[r.class]) byClass[r.class] = {};
+      subjects.forEach(s => {
+        if (!byClass[r.class][s]) byClass[r.class][s] = [];
+        byClass[r.class][s].push(r[s]);
+      });
+    });
+    let html = '<h3 style="color:' + (document.body.classList.contains('light') ? 'var(--color-accent-dark)' : 'var(--color-accent)') + ';">По классам и предметам</h3><table><tr><th>Класс</th><th>Предмет</th><th>Средняя</th><th>Медиана</th><th>Кол-во</th><th>2</th><th>3</th><th>4</th><th>5</th></tr>';
+    for (let cls in byClass) {
+      for (let s of subjects) {
+        let grades = byClass[cls][s] || [];
+        html += `<tr>
+            <td>${cls}</td>
+            <td>${s}</td>
+            <td>${avg(grades).toFixed(2)}</td>
+            <td>${median(grades)}</td>
+            <td>${grades.length}</td>
+            <td>${count(grades, 2)} (${perc(grades, 2)}%)</td>
+            <td>${count(grades, 3)} (${perc(grades, 3)}%)</td>
+            <td>${count(grades, 4)} (${perc(grades, 4)}%)</td>
+            <td>${count(grades, 5)} (${perc(grades, 5)}%)</td>
+        </tr>`;
+      }
+    }
+    html += '</table>';
+    let bySubject = {};
+    subjects.forEach(s => bySubject[s] = []);
+    journal.forEach(r => {
+      subjects.forEach(s => bySubject[s].push(r[s]));
+    });
+    html += '<h3 style="color:' + (document.body.classList.contains('light') ? 'var(--color-accent-dark)' : 'var(--color-accent)') + ';">По предметам (все классы)</h3><table><tr><th>Предмет</th><th>Средняя</th><th>Медиана</th><th>Кол-во</th><th>2</th><th>3</th><th>4</th><th>5</th></tr>';
+    for (let s of subjects) {
+      let grades = bySubject[s];
+      html += `<tr>
+          <td>${s}</td>
+          <td>${avg(grades).toFixed(2)}</td>
+          <td>${median(grades)}</td>
+          <td>${grades.length}</td>
+          <td>${count(grades, 2)} (${perc(grades, 2)}%)</td>
+          <td>${count(grades, 3)} (${perc(grades, 3)}%)</td>
+          <td>${count(grades, 4)} (${perc(grades, 4)}%)</td>
+          <td>${count(grades, 5)} (${perc(grades, 5)}%)</td>
+      </tr>`;
+    }
+    html += '</table>';
+    document.getElementById('statTable').innerHTML = html;
+  }
+
+  // --- ГРАФИКИ ---
+  let chart;
+  function renderStatChart() {
+    let bySubject = {};
+    subjects.forEach(s => bySubject[s] = []);
+    journal.forEach(r => {
+      subjects.forEach(s => bySubject[s].push(r[s]));
+    });
+    let labels = subjects;
+    let data2 = labels.map(s => count(bySubject[s], 2));
+    let data3 = labels.map(s => count(bySubject[s], 3));
+    let data4 = labels.map(s => count(bySubject[s], 4));
+    let data5 = labels.map(s => count(bySubject[s], 5));
+    let ctx = document.getElementById('statChart').getContext('2d');
+    if (chart) chart.destroy();
+    chart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Оценка 2', data: data2, backgroundColor: '#ff5050' },
+          { label: 'Оценка 3', data: data3, backgroundColor: '#ffeb3b' },
+          { label: 'Оценка 4', data: data4, backgroundColor: '#40c4ff' },
+          { label: 'Оценка 5', data: data5, backgroundColor: '#00e676' },
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: {
+            position: 'top',
+            labels: {
+              color: document.body.classList.contains('light') ? '#222' : '#fff',
+              font: { size: 18, weight: 'bold', family: 'Montserrat' }
+            }
+          },
+          title: {
+            display: false
+          }
+        },
+        scales: {
+          x: {
+            ticks: { color: document.body.classList.contains('light') ? '#222' : '#fff', font: { size: 16, weight: 'bold' } },
+            grid: { color: document.body.classList.contains('light') ? '#ccc' : '#333' }
+          },
+          y: {
+            beginAtZero: true,
+            ticks: { stepSize: 1, color: document.body.classList.contains('light') ? '#222' : '#fff', font: { size: 16, weight: 'bold' } },
+            grid: { color: document.body.classList.contains('light') ? '#ccc' : '#333' }
+          }
+        }
+      }
+    });
+  }
+</script>
+</body>
+</html>
